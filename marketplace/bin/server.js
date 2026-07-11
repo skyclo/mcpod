@@ -12,5 +12,5 @@ const store = new MarketplaceStore(databasePath);
 const app = createApp(store);
 
 app.listen(port, () => {
-  console.log(`mcpod marketplace server listening on port ${port}`);
-});
+    console.log(`mcpod marketplace server listening on port ${port}`)
+})

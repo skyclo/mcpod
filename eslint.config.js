@@ -1,4 +1,4 @@
-import js from "@eslint/js";
+import js from "@eslint/js"
 
 export default [
   js.configs.recommended,
@@ -13,8 +13,7 @@ export default [
         fetch: "readonly",
       },
     },
-  },
-  {
-    ignores: ["**/node_modules/**"],
-  },
-];
+    {
+        ignores: ["**/node_modules/**"],
+    },
+]
