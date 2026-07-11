@@ -1,16 +1,39 @@
 import ora from "ora"
+import stringWidth from "string-width"
 import { chalkStderr as c } from "chalk"
 
 // All human-facing output is written to stderr. For stdio-transport MCP
 // servers, stdout/stdin belong to the MCP protocol, so the UI must never
 // write to stdout.
 //
-// Interactive layout: every line is `<2-space gutter><icon> <text>`, so
-// icons sit in one column and text in another. `detail` lines indent to the
-// text column. Prompts get the same gutter via `promptTheme`.
+// Interactive layout: every line is `<2-space gutter><icon column><text>`,
+// so icons sit in one column and text in another. `detail` lines indent to
+// the text column. Prompts get the same gutter via `promptTheme`.
+//
+// Icon glyphs are not all the same display width (e.g. ✔ and ✖ render two
+// columns wide, "i" and "▲" one), so `iconLine` pads every icon out to
+// ICON_WIDTH using measured width rather than assuming a fixed character
+// count — that keeps the text column stable regardless of which glyph an
+// icon uses.
 
 const GUTTER = "  "
-const DETAIL_INDENT = "    "
+const ICON_WIDTH = 2
+const DETAIL_INDENT = " ".repeat(GUTTER.length + ICON_WIDTH + 1)
+const ICON = {
+    info: "i",
+    warn: "▲",
+    error: "✖",
+    success: "✔",
+    prompt: "?",
+    pointer: ">",
+    checked: "■",
+    unchecked: "□",
+}
+
+/** Pad `icon` with trailing spaces so it occupies `width` display columns. */
+function padIcon(icon, width = ICON_WIDTH) {
+    return icon + " ".repeat(Math.max(0, width - stringWidth(icon)))
+}
 
 /**
  * True when we can render spinners/prompts instead of plain log lines.
@@ -25,9 +48,26 @@ export function isInteractive() {
     )
 }
 
-/** Theme for @inquirer prompts so they align with the UI's gutter. */
+// Theme for @inquirer prompts so they align with the UI's gutter.
+//
+// checkbox renders each row as `${cursor}${checkbox} ${name}`, where the
+// active row's cursor is `icon.cursor` but the inactive row's is a hardcoded
+// single space (not themable — inquirer doesn't expose it). Since that
+// hardcoded space is always 1 column wide, `icon.cursor` must also be 1
+// column wide (just the arrow, no gutter) so both rows carry the same
+// prefix width — otherwise the checkbox glyph lands 2 columns further
+// right on the active row than on inactive ones. The gutter instead lives
+// on `checked`/`unchecked`, which both rows share equally.
 export const promptTheme = {
-    prefix: { idle: `${GUTTER}${c.cyan("?")}`, done: `${GUTTER}${c.green("✔")}` },
+    prefix: {
+        idle: `${GUTTER}${c.cyan(ICON.prompt)}`,
+        done: `${GUTTER}${c.green(ICON.success)}`,
+    },
+    icon: {
+        cursor: c.cyan(ICON.pointer),
+        checked: `${GUTTER} ${c.green(ICON.checked)}`,
+        unchecked: `${GUTTER} ${ICON.unchecked}`,
+    },
 }
 
 /** Render a fixed-width progress bar like ▐████░░░░▌. */
@@ -46,7 +86,7 @@ function logLine(level, text) {
 }
 
 function iconLine(icon, text) {
-    process.stderr.write(`${GUTTER}${icon} ${text}\n`)
+    process.stderr.write(`${GUTTER}${padIcon(icon)} ${text}\n`)
 }
 
 /**
@@ -93,14 +133,14 @@ export function createUI({ interactive = isInteractive() } = {}) {
         interactive: true,
         banner(command) {
             process.stderr.write(
-                `\n${GUTTER}${c.ansi256(104).bold("⬢ mcpod")} ${c.dim("·")} ${c.bold(command)}\n\n`
+                `\n${GUTTER}${c.ansi256(104).bold("* mcpod")} ${c.dim("·")} ${c.bold(command)}\n\n`
             )
         },
-        info: text => iconLine(c.blue("i"), text),
+        info: text => iconLine(c.blue(ICON.info), text),
         detail: text => process.stderr.write(`${DETAIL_INDENT}${c.dim(text)}\n`),
-        warn: text => iconLine(c.yellow("⚠"), c.yellow(text)),
-        error: text => iconLine(c.red("✖"), c.red(text)),
-        success: text => iconLine(c.green("✔"), text),
+        warn: text => iconLine(c.yellow(ICON.warn), c.yellow(text)),
+        error: text => iconLine(c.red(ICON.error), c.red(text)),
+        success: text => iconLine(c.green(ICON.success), text),
         blank: () => process.stderr.write("\n"),
         task(text) {
             const spinner = ora({ text, stream: process.stderr, indent: 2 }).start()
@@ -108,6 +148,10 @@ export function createUI({ interactive = isInteractive() } = {}) {
             // every other line instead of ora's own indent handling.
             const persist = (icon, finalText) => {
                 spinner.stop()
+                // ora's indent option leaves the cursor parked at column
+                // `indent` (not 0) once stopped, so writing our own
+                // GUTTER-prefixed line on top would double up the indent.
+                process.stderr.cursorTo(0)
                 iconLine(icon, finalText)
             }
             return {
@@ -129,9 +173,8 @@ export function createUI({ interactive = isInteractive() } = {}) {
                         .join("\n")
                     spinner.text = body ? `${head}\n${body}` : head
                 },
-                // !BUG: upon success, the success text printed will be indented slightly more than the other lines
-                succeed: (finalText = text) => persist(c.green("✔"), finalText),
-                fail: (finalText = text) => persist(c.red("✖"), c.red(finalText)),
+                succeed: (finalText = text) => persist(c.green(ICON.success), finalText),
+                fail: (finalText = text) => persist(c.red(ICON.error), c.red(finalText)),
             }
         },
     }
