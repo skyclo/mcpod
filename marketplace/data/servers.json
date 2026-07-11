@@ -1,24 +1,69 @@
 {
   "servers": [
     {
-      "name": "filesystem",
-      "displayName": "Filesystem MCP Server",
-      "description": "Read and write files from explicitly granted directories.",
-      "version": "0.1.0",
-      "author": "MCPod maintainers",
-      "gitUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
-      "tags": ["files", "local"],
-      "configMcpod": "name: filesystem\nversion: 0.1.0\nimage: mcpod/filesystem:0.1.0\npermissions:\n  network: false\n  mounts: []\n"
+      "name": "context7",
+      "displayName": "Context7",
+      "description": "Up-to-date code documentation and examples for LLMs.",
+      "version": "1.0.0",
+      "author": "Upstash",
+      "gitUrl": "https://github.com/upstash/context7",
+      "tags": [
+        "docs",
+        "search"
+      ],
+      "configMcpod": "metadata:\n  name: context7\n  description: \"Up-to-date code documentation and examples for LLMs.\"\n  version: \"1.0.0\"\n  author: \"Upstash\"\nimage: node:22-alpine\ncommand: [\"npx\", \"-y\", \"@upstash/context7-mcp\"]\ntransport: stdio\nenvironment: {}\npermissions:\n  network:\n    outbound: true\n    allow:\n      - \"registry.npmjs.org\"\n      - \"context7.com\"\n      - \"*.context7.com\"\n  filesystem: []\n  compute:\n    cpus: 1\n    memory: 512m\nrestart: \"no\"\n"
     },
     {
-      "name": "git",
-      "displayName": "Git MCP Server",
-      "description": "Inspect git repositories that are mounted into the container.",
-      "version": "0.1.0",
-      "author": "MCPod maintainers",
-      "gitUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/git",
-      "tags": ["git", "repositories"],
-      "configMcpod": "name: git\nversion: 0.1.0\nimage: mcpod/git:0.1.0\npermissions:\n  network: false\n  mounts: []\n"
+      "name": "sequential-thinking",
+      "displayName": "Sequential Thinking",
+      "description": "Structured, step-by-step reasoning as an MCP tool.",
+      "version": "0.6.2",
+      "author": "Anthropic, PBC",
+      "gitUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking",
+      "tags": [
+        "reasoning",
+        "planning"
+      ],
+      "configMcpod": "metadata:\n  name: sequential-thinking\n  description: \"Structured, step-by-step reasoning as an MCP tool.\"\n  version: \"0.6.2\"\n  author: \"Anthropic, PBC\"\nimage: node:22-alpine\ncommand: [\"npx\", \"-y\", \"@modelcontextprotocol/server-sequential-thinking\"]\ntransport: stdio\nenvironment: {}\npermissions:\n  network:\n    outbound: true\n    allow:\n      - \"registry.npmjs.org\"\n  filesystem: []\n  compute:\n    cpus: 1\n    memory: 256m\nrestart: \"no\"\n"
+    },
+    {
+      "name": "memory",
+      "displayName": "Memory",
+      "description": "Persistent knowledge-graph memory for LLMs.",
+      "version": "0.6.3",
+      "author": "Anthropic, PBC",
+      "gitUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+      "tags": [
+        "memory",
+        "knowledge-graph"
+      ],
+      "configMcpod": "metadata:\n  name: memory\n  description: \"Persistent knowledge-graph memory for LLMs.\"\n  version: \"0.6.3\"\n  author: \"Anthropic, PBC\"\nimage: node:22-alpine\ncommand: [\"npx\", \"-y\", \"@modelcontextprotocol/server-memory\"]\ntransport: stdio\nenvironment: \n  MEMORY_FILE_PATH: /data/memory.json\npermissions:\n  network:\n    outbound: true\n    allow:\n      - \"registry.npmjs.org\"\n  filesystem: []\n  compute:\n    cpus: 1\n    memory: 256m\nrestart: \"no\"\n"
+    },
+    {
+      "name": "everything",
+      "displayName": "Everything",
+      "description": "Reference MCP server exercising prompts, tools, and resources.",
+      "version": "0.6.2",
+      "author": "Anthropic, PBC",
+      "gitUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/everything",
+      "tags": [
+        "reference",
+        "testing"
+      ],
+      "configMcpod": "metadata:\n  name: everything\n  description: \"Reference MCP server exercising prompts, tools, and resources.\"\n  version: \"0.6.2\"\n  author: \"Anthropic, PBC\"\nimage: node:22-alpine\ncommand: [\"npx\", \"-y\", \"@modelcontextprotocol/server-everything\"]\ntransport: stdio\nenvironment: {}\npermissions:\n  network:\n    outbound: true\n    allow:\n      - \"registry.npmjs.org\"\n  filesystem: []\n  compute:\n    cpus: 1\n    memory: 256m\nrestart: \"no\"\n"
+    },
+    {
+      "name": "filesystem",
+      "displayName": "Filesystem",
+      "description": "Read and write files in directories you explicitly grant.",
+      "version": "0.6.2",
+      "author": "Anthropic, PBC",
+      "gitUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+      "tags": [
+        "files",
+        "local"
+      ],
+      "configMcpod": "metadata:\n  name: filesystem\n  description: \"Read and write files in directories you explicitly grant.\"\n  version: \"0.6.2\"\n  author: \"Anthropic, PBC\"\nimage: node:22-alpine\ncommand: [\"npx\", \"-y\", \"@modelcontextprotocol/server-filesystem\", \"/workspace\"]\ntransport: stdio\nenvironment: {}\npermissions:\n  network:\n    outbound: true\n    allow:\n      - \"registry.npmjs.org\"\n  filesystem: []\n  compute:\n    cpus: 1\n    memory: 256m\nrestart: \"no\"\n"
     }
   ]
 }
