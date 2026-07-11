@@ -1,0 +1,19 @@
+{
+  "name": "mcpod-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "cli",
+    "marketplace"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.9.0",
+    "eslint": "^9.9.0",
+    "prettier": "^3.3.3"
+  }
+}

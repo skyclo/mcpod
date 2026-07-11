@@ -1,0 +1,82 @@
+# EXAMPLE CONFIG
+#
+# config.mcpod describes one MCP server: where it comes from, how to run it,
+# what it's allowed to access, and the scripts for its install/start/stop/
+# uninstall lifecycle. Loosely modeled on docker-compose, but network and
+# filesystem access are granted explicitly through `permissions` rather than
+# compose-style `volumes` — MCPod shows this to the user as a consent screen
+# before install, and enforces it when the container is created.
+#
+# Drop this in your repo root and MCPod users can `mcpod install <your-repo>`.
+
+metadata:
+  name: my-search-server
+  description: "MCP server that exposes web search as a tool."
+  version: "1.2.0"
+  author: "skyclo <hello@skyclo.dev>"
+
+# Where MCPod fetches the source from.
+source:
+  url: "https://github.com/skyclo/my-search-server.git"
+  # Pin to a ref for reproducibility. Accepts a branch, tag, or commit SHA.
+  commit: "abca151"
+
+# A prebuilt image skips the build step entirely.
+image: alpine:latest
+#
+# Otherwise MCPod builds one from a Dockerfile at this path, relative to
+# `source` (and `source.subdirectory`).
+# build: ./Dockerfile
+
+# Overrides the image's default command/entrypoint.
+command: ["node", "dist/index.js"]
+
+# How MCP clients talk to this server.
+# transport: stdio (default, no network needed) | http
+transport: stdio
+
+# Container ports to expose. Only meaningful when transport is http.
+ports:
+  - 8080
+
+# Environment passed into the container. A plain value is used as-is; an
+# object prompts the user at install time and stores the answer — in the
+# OS keychain when `secret: true`, otherwise in the install record.
+environment:
+  LOG_LEVEL: info
+  API_KEY:
+    secret: true
+    required: true
+    description: "API key for the search provider"
+  REGION:
+    default: us-east
+    options: [us-east, us-west, eu-central]
+    description: "Deployment region"
+
+# What this container may access. Default is nothing. Shown to the user as
+# a consent screen before install, like a mobile app permissions prompt.
+permissions:
+  network:
+    outbound: true
+    allow:
+      - "*.searchprovider.com"
+  filesystem:
+    - "/etc/my-search-server/config.json:/data/config.json:ro"
+  compute:
+    cpus: 2
+    memory: 1g
+
+# no | on-failure | always | unless-stopped
+restart: on-failure
+
+# Lifecycle scripts. All optional, all run inside the container (never on
+# the host). Point at a script file, or write bash inline.
+scripts:
+  install: scripts/download-index.sh
+  start:
+    inline: |
+      echo "warming cache..."
+      node warmup.js
+  stop: scripts/flush-cache.sh
+  uninstall:
+    inline: "rm -rf /data/cache/*"
