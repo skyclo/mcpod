@@ -1,19 +1,19 @@
-import js from "@eslint/js";
+import js from "@eslint/js"
 
 export default [
-  js.configs.recommended,
-  {
-    languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
-      globals: {
-        process: "readonly",
-        console: "readonly",
-        URL: "readonly",
-      },
+    js.configs.recommended,
+    {
+        languageOptions: {
+            ecmaVersion: "latest",
+            sourceType: "module",
+            globals: {
+                process: "readonly",
+                console: "readonly",
+                URL: "readonly",
+            },
+        },
     },
-  },
-  {
-    ignores: ["**/node_modules/**"],
-  },
-];
+    {
+        ignores: ["**/node_modules/**"],
+    },
+]
