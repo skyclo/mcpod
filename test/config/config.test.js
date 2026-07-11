@@ -124,7 +124,7 @@ describe("describePermissions", () => {
     it("summarizes granted permissions", () => {
         const perms = describePermissions(parseConfig(VALID))
         assert.match(perms.network, /outbound allowed/)
-        assert.match(perms.network, /registry.npmjs.org/)
+        assert.match(perms.network, /registry\.npmjs\.org/)
         assert.match(perms.compute, /2 cpus/)
     })
 })
