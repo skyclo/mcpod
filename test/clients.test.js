@@ -38,6 +38,7 @@ describe("clientConfigPath", () => {
     it("puts global scopes under the home directory", () => {
         assert.match(clientConfigPath("claude-code", "global"), /\.claude\.json$/)
         assert.match(clientConfigPath("claude-desktop", "global"), /claude_desktop_config\.json$/)
+        assert.match(clientConfigPath("lm-studio", "global"), /\.lmstudio[/\\]mcp\.json$/)
     })
 })
 

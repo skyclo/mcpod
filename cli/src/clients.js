@@ -54,6 +54,13 @@ export const SUPPORTED_CLIENTS = {
             global: () => join(homedir(), ".cursor", "mcp.json"),
         },
     },
+    "lm-studio": {
+        label: "LM Studio",
+        entryKey: "mcpServers",
+        scopes: {
+            global: () => join(homedir(), ".lmstudio", "mcp.json"),
+        },
+    },
 }
 
 /** All valid "client:scope" spec strings, e.g. "claude-code:project". */
