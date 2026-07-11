@@ -4,6 +4,8 @@ import { ensureDaemon } from "../src/docker/client.js"
 import { formatBytes, pullImage } from "../src/docker/images.js"
 import { allClientSpecs, clientChoices, parseClientSpec, registerServer } from "../src/clients.js"
 import { loadRecord, loadSettings, saveRecord } from "../src/state/records.js"
+import { stringify } from "yaml"
+import { interpretRepositoryToConfig } from "../src/interpret/gemini.js"
 
 // Emulated marketplace config for the Context7 MCP server, standing in for a
 // fetched + parsed config.mcpod until the marketplace client and config
@@ -120,12 +122,6 @@ export default program => {
                 // Fail fast on bad --client specs before touching Docker.
                 options.client.forEach(parseClientSpec)
 
-                if (options.interpretUnsafe) {
-                    ui.warn(
-                        "--interpret-unsafe is not implemented yet; using the standard install path."
-                    )
-                }
-
                 if (await loadRecord(name)) {
                     ui.error(
                         `${name} is already installed. Remove it first with \`mcpod rm ${name}\`.`
@@ -142,11 +138,51 @@ export default program => {
                 daemon.succeed(`Docker daemon connected (v${version})`)
 
                 const resolving = ui.task(`Resolving ${name} from marketplace`)
-                const config = {
-                    ...EMULATED_CONFIG,
-                    metadata: { ...EMULATED_CONFIG.metadata, name },
+                const config = options.interpretUnsafe
+                    ? await interpretRepositoryToConfig({ target: name, name }).catch(err => {
+                          resolving.fail(`Gemini interpretation failed: ${err.message}`)
+                          throw err
+                      })
+                    : {
+                          ...EMULATED_CONFIG,
+                          metadata: { ...EMULATED_CONFIG.metadata, name },
+                      }
+                resolving.succeed(
+                    options.interpretUnsafe
+                        ? `Resolved ${name} with Gemini-generated config (unsafe path)`
+                        : `Resolved ${name} v${config.metadata.version} (emulated config)`
+                )
+
+                if (options.interpretUnsafe) {
+                    ui.blank()
+                    ui.warn(
+                        "Generated config from --interpret-unsafe (review carefully before installing):"
+                    )
+                    stringify(config)
+                        .trimEnd()
+                        .split("\n")
+                        .forEach(line => ui.detail(line))
+                    ui.blank()
+
+                    if (options.yes) {
+                        ui.info("Generated config accepted via --yes.")
+                    } else if (!ui.interactive) {
+                        ui.error("Non-interactive session: pass --yes to accept generated config.")
+                        process.exitCode = 1
+                        return
+                    } else {
+                        const accepted = await confirm({
+                            message: "Use this generated config.mcpod for install?",
+                            default: false,
+                            theme: promptTheme,
+                        })
+                        if (!accepted) {
+                            ui.warn("Install cancelled — generated config was not accepted.")
+                            process.exitCode = 1
+                            return
+                        }
+                    }
                 }
-                resolving.succeed(`Resolved ${name} v${config.metadata.version} (emulated config)`)
 
                 // Consent screen: the user grants the config's permissions before
                 // anything is downloaded.
