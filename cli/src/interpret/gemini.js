@@ -6,6 +6,7 @@ import { parse } from "yaml"
 
 const MAX_FILE_BYTES = 64 * 1024
 const MAX_TOTAL_BYTES = 512 * 1024
+const MAX_FILE_COUNT = 200
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite"
 const SKIP_DIRS = new Set([".git", "node_modules", ".next", "dist", "build"])
 const TEXT_EXTENSIONS = new Set([
@@ -75,43 +76,124 @@ async function walk(root, dir = root, files = []) {
     return files
 }
 
-export async function collectRepositoryContext(target) {
-    const root = resolve(target)
-    if (!(await pathExists(root))) {
+function parseGitHubTarget(target) {
+    const httpsMatch = target.match(
+        /^https:\/\/github\.com\/(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+?)(?:\.git)?\/?$/
+    )
+    if (httpsMatch?.groups) return httpsMatch.groups
+
+    const sshMatch = target.match(
+        /^git@github\.com:(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+?)(?:\.git)?$/
+    )
+    if (sshMatch?.groups) return sshMatch.groups
+
+    const shortMatch = target.match(/^(?<owner>[A-Za-z0-9_.-]+)\/(?<repo>[A-Za-z0-9_.-]+)$/)
+    if (shortMatch?.groups && !target.startsWith(".") && !target.startsWith("/")) {
+        return shortMatch.groups
+    }
+    return null
+}
+
+function fetchOptions() {
+    return {
+        headers: {
+            Accept: "application/vnd.github+json",
+            "User-Agent": "mcpod-cli",
+        },
+    }
+}
+
+async function collectGitHubContext(target, owner, repo) {
+    const treeResponse = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`,
+        fetchOptions()
+    )
+    if (!treeResponse.ok) {
         throw new Error(
-            `--interpret-unsafe currently expects a local repository path. Could not find: ${target}`
+            `Could not read ${target} from GitHub (${treeResponse.status} ${treeResponse.statusText}).`
         )
     }
 
-    const files = await walk(root)
+    const tree = await treeResponse.json()
+    const files = (tree.tree || [])
+        .filter(entry => entry.type === "blob" && typeof entry.path === "string")
+        .map(entry => ({ path: entry.path, size: entry.size ?? 0 }))
+        .filter(file => isTextPath(file.path) && file.size <= MAX_FILE_BYTES)
+        .slice(0, MAX_FILE_COUNT)
+
+    if (!files.length) {
+        throw new Error(`No readable documentation/code files found in ${target}.`)
+    }
+
     let totalBytes = 0
     const docs = []
     const omitted = []
-
-    for (const relPath of files.sort()) {
-        const absPath = join(root, relPath)
-        const body = await readFile(absPath)
-        if (body.includes(0)) {
-            omitted.push(`${relPath} (binary)`)
+    for (const file of files.sort((a, b) => a.path.localeCompare(b.path))) {
+        if (totalBytes + file.size > MAX_TOTAL_BYTES) {
+            omitted.push(`${file.path} (token budget)`)
             continue
         }
-        if (body.byteLength > MAX_FILE_BYTES) {
-            omitted.push(`${relPath} (too large)`)
+        const rawResponse = await fetch(
+            `https://raw.githubusercontent.com/${owner}/${repo}/HEAD/${file.path}`,
+            fetchOptions()
+        )
+        if (!rawResponse.ok) {
+            omitted.push(`${file.path} (${rawResponse.status})`)
             continue
         }
-        if (totalBytes + body.byteLength > MAX_TOTAL_BYTES) {
-            omitted.push(`${relPath} (token budget)`)
-            continue
-        }
-        docs.push({ path: relPath, content: body.toString("utf8") })
-        totalBytes += body.byteLength
+        const content = await rawResponse.text()
+        docs.push({ path: file.path, content })
+        totalBytes += Buffer.byteLength(content, "utf8")
     }
 
     if (!docs.length) {
-        throw new Error(`No readable documentation/code files found under: ${target}`)
+        throw new Error(`No readable documentation/code files could be fetched from ${target}.`)
+    }
+    return { root: `github.com/${owner}/${repo}`, docs, omitted }
+}
+
+export async function collectRepositoryContext(target) {
+    const root = resolve(target)
+    if (await pathExists(root)) {
+        const files = await walk(root)
+        let totalBytes = 0
+        const docs = []
+        const omitted = []
+
+        for (const relPath of files.sort()) {
+            const absPath = join(root, relPath)
+            const body = await readFile(absPath)
+            if (body.includes(0)) {
+                omitted.push(`${relPath} (binary)`)
+                continue
+            }
+            if (body.byteLength > MAX_FILE_BYTES) {
+                omitted.push(`${relPath} (too large)`)
+                continue
+            }
+            if (totalBytes + body.byteLength > MAX_TOTAL_BYTES) {
+                omitted.push(`${relPath} (token budget)`)
+                continue
+            }
+            docs.push({ path: relPath, content: body.toString("utf8") })
+            totalBytes += body.byteLength
+        }
+
+        if (!docs.length) {
+            throw new Error(`No readable documentation/code files found under: ${target}`)
+        }
+
+        return { root, docs, omitted }
     }
 
-    return { root, docs, omitted }
+    const github = parseGitHubTarget(target)
+    if (github) {
+        return collectGitHubContext(target, github.owner, github.repo)
+    }
+
+    throw new Error(
+        `--interpret-unsafe target must be a local repository path or a GitHub repo/URL: ${target}`
+    )
 }
 
 function makePrompt({ name, context }) {
