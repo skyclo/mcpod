@@ -1,53 +1,78 @@
-import { checkbox, confirm } from "@inquirer/prompts"
+import { checkbox, confirm, input, password, select } from "@inquirer/prompts"
 import { createUI, promptTheme, renderBar } from "../src/ui.js"
 import { ensureDaemon } from "../src/docker/client.js"
 import { formatBytes, pullImage } from "../src/docker/images.js"
 import { allClientSpecs, clientChoices, parseClientSpec, registerServer } from "../src/clients.js"
 import { loadRecord, loadSettings, saveRecord } from "../src/state/records.js"
+import { describePermissions } from "../src/config/index.js"
+import { resolveConfig } from "../src/marketplace/index.js"
 
-// Emulated marketplace config for the Context7 MCP server, standing in for a
-// fetched + parsed config.mcpod until the marketplace client and config
-// module land. Context7 ships no Docker image of its own, so this config
-// does what a config.mcpod author would: run the published npm package on a
-// generic Node base image and grant only the network access it needs (npm
-// registry to fetch the package, context7.com for the docs API).
-const EMULATED_CONFIG = {
-    metadata: {
-        name: "context7",
-        description: "Context7 MCP server — up-to-date code docs and examples for LLMs.",
-        version: "1.0.0",
-        author: "Upstash",
-    },
-    image: "node:22-alpine",
-    command: ["npx", "-y", "@upstash/context7-mcp"],
-    transport: "stdio",
-    environment: {},
-    permissions: {
-        network: {
-            outbound: true,
-            allow: ["registry.npmjs.org", "context7.com", "*.context7.com"],
-        },
-        filesystem: [],
-        compute: { cpus: 1, memory: "512m" },
-    },
-    restart: "no",
+function isEnvDescriptor(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value)
 }
 
-function describePermissions(config) {
-    const network = config.permissions?.network?.outbound
-        ? `outbound allowed${config.permissions.network.allow ? ` (${config.permissions.network.allow.join(", ")})` : ""}`
-        : "none — fully isolated"
-    const filesystem = config.permissions?.filesystem?.length
-        ? config.permissions.filesystem.join(", ")
-        : "none"
-    const compute = config.permissions?.compute
-        ? `${config.permissions.compute.cpus ?? "?"} cpus, ${config.permissions.compute.memory ?? "?"} memory`
-        : "default limits"
-    return { network, filesystem, compute }
+/**
+ * Turn a config's `environment` block into the flat `{ KEY: value }` map the
+ * container gets. Scalars pass through; descriptor entries are prompted for
+ * (interactive) or filled from their default. A required descriptor with no
+ * default and no answer aborts install rather than starting a broken server.
+ *
+ * @returns {Promise<Record<string, string>>}
+ */
+export async function resolveEnvironment(environment, { interactive, yes, existing = {} }) {
+    const resolved = {}
+    for (const [key, spec] of Object.entries(environment ?? {})) {
+        if (!isEnvDescriptor(spec)) {
+            resolved[key] = String(spec)
+            continue
+        }
+
+        // Prefer a previously stored answer (used by `update`), then the
+        // descriptor's own default.
+        const fallback =
+            existing[key] != null
+                ? String(existing[key])
+                : spec.default != null
+                  ? String(spec.default)
+                  : undefined
+        if (!interactive || yes) {
+            if (fallback !== undefined) {
+                resolved[key] = fallback
+            } else if (spec.required) {
+                throw new Error(
+                    `Environment variable ${key} is required but has no default; ` +
+                        "run install interactively to provide it."
+                )
+            }
+            continue
+        }
+
+        const message = `${key}${spec.description ? ` — ${spec.description}` : ""}`
+        let answer
+        if (spec.options?.length) {
+            answer = await select({
+                message,
+                choices: spec.options.map(o => ({ value: String(o) })),
+                default: fallback,
+                theme: promptTheme,
+            })
+        } else if (spec.secret) {
+            answer = await password({ message, mask: true, theme: promptTheme })
+        } else {
+            answer = await input({ message, default: fallback, theme: promptTheme })
+        }
+        answer = answer?.trim()
+        if (answer) {
+            resolved[key] = answer
+        } else if (spec.required) {
+            throw new Error(`Environment variable ${key} is required.`)
+        }
+    }
+    return resolved
 }
 
 /** One display line per image layer, sized for spinners or log lines. */
-function layerLines(layers, interactive) {
+export function layerLines(layers, interactive) {
     if (interactive) {
         return layers.map(layer => {
             const fraction = layer.total ? layer.current / layer.total : layer.done ? 1 : 0
@@ -142,11 +167,11 @@ export default program => {
                 daemon.succeed(`Docker daemon connected (v${version})`)
 
                 const resolving = ui.task(`Resolving ${name} from marketplace`)
-                const config = {
-                    ...EMULATED_CONFIG,
-                    metadata: { ...EMULATED_CONFIG.metadata, name },
-                }
-                resolving.succeed(`Resolved ${name} v${config.metadata.version} (emulated config)`)
+                const config = await resolveConfig(name).catch(err => {
+                    resolving.fail(err.message)
+                    throw err
+                })
+                resolving.succeed(`Resolved ${name} v${config.metadata.version} from marketplace`)
 
                 // Consent screen: the user grants the config's permissions before
                 // anything is downloaded.
@@ -180,6 +205,18 @@ export default program => {
                     ui.blank()
                 }
 
+                // Resolve the environment now (prompting for any descriptor
+                // values) so the stored config carries a flat `{ KEY: value }`
+                // map that `mcpod run` can hand straight to the container.
+                const environment = await resolveEnvironment(config.environment, {
+                    interactive: ui.interactive,
+                    yes: options.yes,
+                })
+                if (Object.keys(config.environment ?? {}).length) {
+                    ui.blank()
+                }
+                const recordConfig = { ...config, environment }
+
                 const pull = ui.task(`Pulling image ${config.image}`)
                 await pullImage(config.image, ({ fraction, detail, layers }) =>
                     pull.progress(fraction, detail, layerLines(layers, ui.interactive))
@@ -205,7 +242,7 @@ export default program => {
                 }
 
                 const recordFile = await saveRecord(name, {
-                    config,
+                    config: recordConfig,
                     clients: registered,
                     installedAt: new Date().toISOString(),
                 })
