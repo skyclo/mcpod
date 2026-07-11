@@ -9,6 +9,7 @@ import {
     parseClientSpec,
     registerServer,
     serverEntry,
+    unregisterServer,
 } from "../cli/src/clients.js"
 
 describe("parseClientSpec", () => {
@@ -109,5 +110,58 @@ describe("registerServer", () => {
         assert.equal(results.length, 2)
         assert.match(results[0].error, /not valid JSON/)
         assert.equal(results[1].error, undefined)
+    })
+})
+
+describe("unregisterServer", () => {
+    let cwd
+
+    before(async () => {
+        cwd = await mkdtemp(join(tmpdir(), "mcpod-unregister-"))
+    })
+
+    after(async () => {
+        await rm(cwd, { recursive: true, force: true })
+    })
+
+    it("removes only the server's entry, leaving other entries and keys intact", async () => {
+        const path = join(cwd, ".mcp.json")
+        await writeFile(
+            path,
+            JSON.stringify({
+                mcpServers: { context7: { command: "mcpod" }, other: { command: "x" } },
+                unrelated: true,
+            })
+        )
+        const results = await unregisterServer("context7", [
+            { spec: "claude-code:project", path },
+        ])
+        assert.deepEqual(results, [{ spec: "claude-code:project", path, removed: true }])
+        const config = JSON.parse(await readFile(path, "utf8"))
+        assert.equal(config.unrelated, true)
+        assert.deepEqual(config.mcpServers, { other: { command: "x" } })
+    })
+
+    it("skips a config file that no longer exists", async () => {
+        const path = join(cwd, "gone", "mcp.json")
+        const results = await unregisterServer("context7", [{ spec: "vscode:project", path }])
+        assert.equal(results[0].removed, undefined)
+        assert.match(results[0].skipped, /not found/)
+    })
+
+    it("skips when the server was never registered there", async () => {
+        const path = join(cwd, "empty.json")
+        await writeFile(path, JSON.stringify({ mcpServers: { other: {} } }))
+        const results = await unregisterServer("context7", [{ spec: "cursor:project", path }])
+        assert.match(results[0].skipped, /no matching entry/)
+        assert.deepEqual(JSON.parse(await readFile(path, "utf8")), { mcpServers: { other: {} } })
+    })
+
+    it("refuses to modify a config it cannot parse", async () => {
+        const path = join(cwd, "bad.json")
+        await writeFile(path, "{ not json !!")
+        const results = await unregisterServer("context7", [{ spec: "cursor:project", path }])
+        assert.match(results[0].error, /not valid JSON/)
+        assert.equal(await readFile(path, "utf8"), "{ not json !!")
     })
 })

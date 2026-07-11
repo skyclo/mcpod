@@ -151,7 +151,9 @@ export function createUI({ interactive = isInteractive() } = {}) {
                 // ora's indent option leaves the cursor parked at column
                 // `indent` (not 0) once stopped, so writing our own
                 // GUTTER-prefixed line on top would double up the indent.
-                process.stderr.cursorTo(0)
+                // cursorTo only exists on a real TTY stream; interactive mode
+                // can still be forced (e.g. in tests) when stderr is not one.
+                process.stderr.cursorTo?.(0)
                 iconLine(icon, finalText)
             }
             return {

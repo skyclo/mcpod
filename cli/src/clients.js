@@ -156,3 +156,46 @@ export async function registerServer(name, specs, cwd = process.cwd()) {
     }
     return results
 }
+
+/**
+ * Remove a server's entry from each client config it was registered in. Uses
+ * the `{spec, path}` pairs stored in the install record (paths were resolved
+ * at install time, so a project-scoped registration is unregistered from the
+ * directory it was installed into, not the current cwd). Reads each config,
+ * deletes the server key under the client's entry map, and writes it back.
+ * A missing file is skipped; an unparseable one is left untouched — mcpod
+ * never clobbers a config it cannot read.
+ *
+ * @param {string} name installed-server name
+ * @param {Array<{spec: string, path: string}>} clients recorded registrations
+ * @returns {Promise<Array<{spec: string, path: string, removed?: boolean, skipped?: string, error?: string}>>}
+ */
+export async function unregisterServer(name, clients) {
+    const results = []
+    for (const { spec, path } of clients) {
+        try {
+            const { client } = parseClientSpec(spec)
+            const { entryKey } = SUPPORTED_CLIENTS[client]
+            let config
+            try {
+                config = JSON.parse(await readFile(path, "utf8"))
+            } catch (err) {
+                if (err.code === "ENOENT") {
+                    results.push({ spec, path, skipped: "file not found" })
+                    continue
+                }
+                throw new Error(`${path} is not valid JSON, refusing to modify`)
+            }
+            if (config?.[entryKey] && name in config[entryKey]) {
+                delete config[entryKey][name]
+                await writeFile(path, `${JSON.stringify(config, null, 2)}\n`)
+                results.push({ spec, path, removed: true })
+            } else {
+                results.push({ spec, path, skipped: "no matching entry" })
+            }
+        } catch (err) {
+            results.push({ spec, path, error: err.message })
+        }
+    }
+    return results
+}

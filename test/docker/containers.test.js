@@ -3,9 +3,11 @@ import assert from "node:assert/strict"
 import {
     buildContainerSpec,
     createProtocolRouter,
+    listServerContainers,
     makeContainerName,
     parseFilesystemGrant,
     parseMemory,
+    serverContainerPattern,
 } from "../../cli/src/docker/containers.js"
 
 function collector() {
@@ -35,6 +37,54 @@ describe("makeContainerName", () => {
         assert.match(a, /^mcpod-srv-[0-9a-f]{8}$/)
         assert.notEqual(a, b)
         assert.notEqual(a, c)
+    })
+})
+
+describe("serverContainerPattern", () => {
+    it("matches only this server's `mcpod-<name>-<hash>` containers", () => {
+        const pattern = serverContainerPattern("foo")
+        assert.ok(pattern.test("mcpod-foo-0a1b2c3d"))
+        assert.ok(!pattern.test("mcpod-foo-bar-0a1b2c3d")) // a different server
+        assert.ok(!pattern.test("mcpod-foobar-0a1b2c3d"))
+        assert.ok(!pattern.test("mcpod-foo-0a1b2c3d-extra"))
+        assert.ok(!pattern.test("mcpod-foo-nothex01"))
+    })
+
+    it("escapes regex metacharacters in the server name", () => {
+        const pattern = serverContainerPattern("a.b")
+        assert.ok(pattern.test("mcpod-a.b-0a1b2c3d"))
+        assert.ok(!pattern.test("mcpod-axb-0a1b2c3d"))
+    })
+})
+
+describe("listServerContainers", () => {
+    function fakeDocker(summaries) {
+        return {
+            calls: [],
+            listContainers(opts) {
+                this.calls.push(opts)
+                return Promise.resolve(summaries)
+            },
+        }
+    }
+
+    it("returns only exact name matches, stripping the leading slash", async () => {
+        const docker = fakeDocker([
+            { Id: "a", Names: ["/mcpod-srv-0a1b2c3d"], State: "running", Status: "Up 2m" },
+            { Id: "b", Names: ["/mcpod-srv-other-0a1b2c3d"], State: "running", Status: "Up 1m" },
+            { Id: "c", Names: ["/unrelated"], State: "running", Status: "Up 5m" },
+        ])
+        const result = await listServerContainers("srv", {}, docker)
+        assert.deepEqual(result, [
+            { id: "a", name: "mcpod-srv-0a1b2c3d", state: "running", status: "Up 2m" },
+        ])
+    })
+
+    it("passes the all flag and a name pre-filter to the daemon", async () => {
+        const docker = fakeDocker([])
+        await listServerContainers("srv", { all: true }, docker)
+        assert.equal(docker.calls[0].all, true)
+        assert.deepEqual(JSON.parse(docker.calls[0].filters), { name: ["mcpod-srv-"] })
     })
 })
 
