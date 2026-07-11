@@ -87,11 +87,12 @@ async function resolveClientSpecs(name, options, ui) {
         return specs
     }
     // TODO: if a user's ~/.mcpod/config.json has defaultClients, pre-select those in the interactive picker.
-    // !BUG: the interactive checkbox prompt is not indented inline with the other lines of the install banner, which is visually jarring. This sits flush with the left side of the terminal instead of indented by 2 spaces like all other items
+    // promptTheme indents the message and choice rows to match the install
+    // banner's 2-space gutter; the instructions line is indented to match here.
     return checkbox({
         message: `Register ${name} with which MCP clients?`,
         choices: clientChoices(),
-        instructions: " (space to select, enter to confirm — select none to skip)",
+        instructions: "  (space to select, enter to confirm — select none to skip)",
         theme: promptTheme,
     })
 }
