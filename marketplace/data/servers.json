@@ -1,0 +1,24 @@
+{
+  "servers": [
+    {
+      "name": "filesystem",
+      "displayName": "Filesystem MCP Server",
+      "description": "Read and write files from explicitly granted directories.",
+      "version": "0.1.0",
+      "author": "MCPod maintainers",
+      "gitUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+      "tags": ["files", "local"],
+      "configMcpod": "name: filesystem\nversion: 0.1.0\nimage: mcpod/filesystem:0.1.0\npermissions:\n  network: false\n  mounts: []\n"
+    },
+    {
+      "name": "git",
+      "displayName": "Git MCP Server",
+      "description": "Inspect git repositories that are mounted into the container.",
+      "version": "0.1.0",
+      "author": "MCPod maintainers",
+      "gitUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/git",
+      "tags": ["git", "repositories"],
+      "configMcpod": "name: git\nversion: 0.1.0\nimage: mcpod/git:0.1.0\npermissions:\n  network: false\n  mounts: []\n"
+    }
+  ]
+}
