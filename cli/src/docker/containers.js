@@ -14,6 +14,50 @@ export function makeContainerName(serverName, cwd = "", now = Date.now()) {
     return `mcpod-${serverName}-${scope}`
 }
 
+/**
+ * Regex matching a container name for exactly this server: `mcpod-<name>-<hash>`.
+ * The trailing `-<hash>` anchor keeps a server named `foo` from matching the
+ * containers of `foo-bar`.
+ */
+export function serverContainerPattern(serverName) {
+    const escaped = serverName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    return new RegExp(`^mcpod-${escaped}-[0-9a-f]{8}$`)
+}
+
+/**
+ * Container summaries (from `docker.listContainers`) for one server. Running
+ * only by default; pass `all` to include stopped containers. The daemon-side
+ * name filter is a coarse pre-filter — the exact `mcpod-<name>-<hash>` pattern
+ * is applied in JS so it is the authoritative match.
+ *
+ * @returns {Promise<Array<{id: string, name: string, state: string, status: string}>>}
+ */
+export async function listServerContainers(serverName, { all = false } = {}, docker = getDocker()) {
+    const pattern = serverContainerPattern(serverName)
+    const summaries = await docker.listContainers({
+        all,
+        filters: JSON.stringify({ name: [`mcpod-${serverName}-`] }),
+    })
+    return summaries
+        .map(c => ({
+            id: c.Id,
+            name: (c.Names ?? []).map(n => n.replace(/^\//, "")).find(n => pattern.test(n)),
+            state: c.State,
+            status: c.Status,
+        }))
+        .filter(c => c.name)
+}
+
+/** Stop a running container by id, giving it a few seconds to exit cleanly. */
+export async function stopContainer(id, docker = getDocker()) {
+    await docker.getContainer(id).stop({ t: 5 })
+}
+
+/** Force-remove a container by id, whether it is running or stopped. */
+export async function removeContainer(id, docker = getDocker()) {
+    await docker.getContainer(id).remove({ force: true })
+}
+
 /** Parse sizes like "512m" / "1g" / "100k" / "1073741824" into bytes. */
 export function parseMemory(value) {
     if (typeof value === "number") return value
