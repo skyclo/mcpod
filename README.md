@@ -1,4 +1,6 @@
-# mcpod
+<p align="center">
+  <img src="docs/mcpod_banner.png" alt="mcpod" width="420">
+</p>
 
 **mcpod** (MCP + Pod) is a command-line tool for installing, managing, and running [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers inside isolated Docker containers.
 
@@ -21,6 +23,20 @@ MCP servers can be powerful: they expose tools, data sources, and local capabili
 - 🔄 **Client registration** — register installed servers with Claude Code, Claude Desktop, VS Code, Cursor, or LM Studio.
 - 🕒 **Lifecycle management** — start, stop, remove, and update installed servers from the CLI.
 - 🤖 **Automatic Config Generation** — `--interpret-unsafe` can use Gemini to generate a `config.mcpod` from docs when a server does not provide one, but only after the user explicitly opts in.
+
+## Web marketplace
+
+Alongside the CLI, mcpod ships a web frontend for discovering servers before you install them. The landing page pitches the sandbox-by-default model and shows the install flow in action:
+
+![mcpod landing page](docs/landing.png)
+
+Browse the registry, filter by capability, name, or publisher, and see every available pod at a glance:
+
+![Browsing available pods](docs/browser.png)
+
+Open any server to inspect its overview, requested permissions, and the exact `config.mcpod` manifest the registry serves — plus a one-line install command and ready-to-copy client config:
+
+![Server detail page with config.mcpod manifest](docs/mcp_info.png)
 
 ## Requirements
 
@@ -91,6 +107,18 @@ Install a server and review its requested permissions interactively:
 mcpod install my-server
 ```
 
+Every install surfaces the server's requested network, filesystem, and compute permissions before anything is pulled:
+
+![Reviewing requested permissions during install](docs/install_fresh.png)
+
+After you grant permissions, mcpod detects which MCP clients are present and lets you pick where to register the server:
+
+![Selecting MCP clients to register with](docs/install_select.png)
+
+Once registration finishes, the server is installed and ready to run:
+
+![Completed install with registered clients](docs/install_done.png)
+
 Accept requested permissions non-interactively:
 
 ```bash
@@ -124,6 +152,10 @@ mcpod stop my-server
 mcpod stop --all
 mcpod stop --all --force
 ```
+
+Running a server creates its container with only the declared permissions and starts it over the configured transport:
+
+![Running an installed server in its container](docs/running.png)
 
 ### Remove or update servers
 
