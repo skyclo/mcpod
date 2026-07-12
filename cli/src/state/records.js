@@ -35,6 +35,30 @@ function recordPath(name) {
 }
 
 /**
+ * Turn an install argument — a marketplace name, a local path, or a Git repo
+ * URL — into the server name used for its record and client registration. A
+ * bare marketplace name passes through unchanged; for paths and URLs we take
+ * the final repo/directory segment, dropping any `.git` suffix or trailing
+ * slash (e.g. `https://github.com/microsoft/playwright-mcp` -> `playwright-mcp`).
+ * Throws if nothing usable can be derived, since the result becomes a filename
+ * under ~/.mcpod/servers.
+ */
+export function deriveServerName(target) {
+    const segment = String(target)
+        .trim()
+        .replace(/\/+$/, "")
+        .replace(/\.git$/i, "")
+        .split(/[/:]/)
+        .pop()
+        ?.trim()
+    if (segment && VALID_NAME.test(segment)) return segment
+    throw new Error(
+        `Could not derive a server name from ${JSON.stringify(target)}. ` +
+            "Expected a marketplace name, a local path, or a Git repo URL."
+    )
+}
+
+/**
  * Persist an install record. State lives in ~/.mcpod/, never in the
  * container — removing a container must not lose the install record.
  * @param {string} name installed-server name

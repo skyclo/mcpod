@@ -3,7 +3,7 @@ import { createUI, promptTheme, renderBar } from "../src/ui.js"
 import { ensureDaemon } from "../src/docker/client.js"
 import { formatBytes, pullImage } from "../src/docker/images.js"
 import { allClientSpecs, clientChoices, parseClientSpec, registerServer } from "../src/clients.js"
-import { loadRecord, loadSettings, saveRecord } from "../src/state/records.js"
+import { deriveServerName, loadRecord, loadSettings, saveRecord } from "../src/state/records.js"
 import { stringify } from "yaml"
 import { interpretRepositoryToConfig } from "../src/interpret/gemini.js"
 import { describePermissions } from "../src/config/index.js"
@@ -139,11 +139,16 @@ export default program => {
             "--interpret-unsafe",
             "use Gemini to translate the server's docs into a config.mcpod when none exists"
         )
-        .action(async (name, options) => {
+        .action(async (target, options) => {
             const ui = createUI()
-            ui.banner(`install ${name}`)
 
             try {
+                // The install argument may be a marketplace name, a local path,
+                // or a Git repo URL; the server's record name is the last of
+                // those, so derive it before it becomes a filename or banner.
+                const name = deriveServerName(target)
+                ui.banner(`install ${name}`)
+
                 // Fail fast on bad --client specs before touching Docker.
                 options.client.forEach(parseClientSpec)
 
@@ -162,13 +167,17 @@ export default program => {
                 })
                 daemon.succeed(`Docker daemon connected (v${version})`)
 
-                const resolving = ui.task(`Resolving ${name} from marketplace`)
+                const resolving = ui.task(
+                    options.interpretUnsafe
+                        ? `Interpreting ${target} with Gemini (unsafe)`
+                        : `Resolving ${name} from marketplace`
+                )
                 const config = options.interpretUnsafe
-                    ? await interpretRepositoryToConfig({ target: name, name }).catch(err => {
+                    ? await interpretRepositoryToConfig({ target, name }).catch(err => {
                           resolving.fail(`Gemini interpretation failed: ${err.message}`)
                           throw err
                       })
-                    : await resolveConfig(name).catch(err => {
+                    : await resolveConfig(target).catch(err => {
                           resolving.fail(err.message)
                           throw err
                       })

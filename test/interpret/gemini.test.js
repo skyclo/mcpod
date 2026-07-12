@@ -83,6 +83,17 @@ restart: no
 
     it("requires GEMINI_API_KEY for interpret-unsafe", async () => {
         delete process.env.GEMINI_API_KEY
-        await assert.rejects(() => interpretRepositoryToConfig({ target: dir }), /GEMINI_API_KEY/)
+        // interpretRepositoryToConfig auto-loads ./.env; run from the fixture
+        // dir (which has none) so a real repo-root .env can't sneak a key back.
+        const cwd = process.cwd()
+        process.chdir(dir)
+        try {
+            await assert.rejects(
+                () => interpretRepositoryToConfig({ target: dir }),
+                /GEMINI_API_KEY/
+            )
+        } finally {
+            process.chdir(cwd)
+        }
     })
 })

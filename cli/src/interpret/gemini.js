@@ -7,7 +7,7 @@ import { parse } from "yaml"
 const MAX_FILE_BYTES = 64 * 1024
 const MAX_TOTAL_BYTES = 512 * 1024
 const MAX_FILE_COUNT = 200
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite"
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash"
 const SKIP_DIRS = new Set([".git", "node_modules", ".next", "dist", "build"])
 const TEXT_EXTENSIONS = new Set([
     ".md",
@@ -250,7 +250,10 @@ export async function interpretRepositoryToConfig({
             if (err?.code !== "ENOENT") throw err
         }
     }
-    const apiKey = process.env.GEMINI_API_KEY?.trim()
+    // Strip surrounding quotes: a `.env` value like KEY='...' (or a stray
+    // trailing quote) otherwise reaches Google as a malformed credential, which
+    // it rejects with a misleading "Expected OAuth 2 access token" 401.
+    const apiKey = process.env.GEMINI_API_KEY?.trim().replace(/^["']+|["']+$/g, "")
     if (!apiKey) {
         throw new Error("GEMINI_API_KEY is required for --interpret-unsafe.")
     }
