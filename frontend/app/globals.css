@@ -1,0 +1,270 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   MCPod design tokens — dark, terminal-adjacent, single accent.
+   Mirrors the Claude Design source (MCPod.dc.html).
+--------------------------------------------------------------------------- */
+:root {
+  --bg: #000000;
+  --panel: #0a0a0d;
+  --panel-2: #0d0d10;
+  --panel-3: #0d0d11;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-2: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.35);
+
+  --text: #e8e6e3;
+  --muted: #a8a8b0;
+  --dim: #8a8a93;
+  --faint: #5a5a63;
+
+  --ac: #9f88ff;
+  --ac-hi: #b6a5ff;
+  --ac-dim: rgba(159, 136, 255, 0.45);
+  --ac-wash: rgba(159, 136, 255, 0.08);
+  --ok: #7dd3a0;
+  --ok-line: rgba(125, 211, 160, 0.4);
+  --blue: #6ea8fe;
+}
+
+@theme inline {
+  --font-sans: var(--font-space), system-ui, sans-serif;
+  --font-mono: var(--font-mono-jb), "JetBrains Mono", ui-monospace, monospace;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-text: var(--text);
+  --color-ac: var(--ac);
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a {
+    color: var(--ac);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--ac-hi);
+  }
+
+  ::selection {
+    background: rgba(159, 136, 255, 0.35);
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  input::placeholder {
+    color: var(--faint);
+  }
+  input:focus,
+  select:focus {
+    outline: none;
+  }
+}
+
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Reusable pieces
+--------------------------------------------------------------------------- */
+.mono {
+  font-family: var(--font-mono);
+}
+
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+.card-link {
+  cursor: pointer;
+}
+.card-link:hover {
+  border-color: var(--ac-dim);
+  background: var(--panel-3);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ac);
+  border: 1px solid var(--ac-dim);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+.btn-accent {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #000;
+  background: var(--ac);
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: filter 0.15s ease;
+}
+.btn-accent:hover {
+  filter: brightness(1.12);
+}
+
+.btn-ghost {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 13px 20px;
+  cursor: pointer;
+  background: transparent;
+  transition: border-color 0.15s ease;
+}
+.btn-ghost:hover {
+  border-color: var(--line-strong);
+}
+
+.chip {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--line-2);
+  color: var(--dim);
+  background: transparent;
+  transition: border-color 0.15s ease;
+}
+.chip:hover {
+  border-color: var(--line-strong);
+}
+.chip[data-active="true"] {
+  border-color: var(--ac);
+  color: var(--ac);
+  background: var(--ac-wash);
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--dim);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  padding: 3px 7px;
+}
+
+.field {
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  color: var(--text);
+}
+
+.code-block {
+  margin: 0;
+  background: #000;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--muted);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive grids — desktop-first like the source, but they collapse.
+--------------------------------------------------------------------------- */
+.grid-hero {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+.grid-detail {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 48px;
+  align-items: start;
+}
+.grid-diagram {
+  display: grid;
+  grid-template-columns: 1fr auto 1.5fr;
+  align-items: stretch;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 960px) {
+  .grid-hero,
+  .grid-detail {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .grid-diagram {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 620px) {
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .wrap {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}

@@ -1,4 +1,6 @@
-# mcpod
+<p align="center">
+  <img src="docs/mcpod_banner.png" alt="mcpod" width="420">
+</p>
 
 **mcpod** (MCP + Pod) is a command-line tool for installing, managing, and running [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers inside isolated Docker containers.
 
@@ -91,6 +93,18 @@ Install a server and review its requested permissions interactively:
 mcpod install my-server
 ```
 
+Every install surfaces the server's requested network, filesystem, and compute permissions before anything is pulled:
+
+![Reviewing requested permissions during install](docs/install_fresh.png)
+
+After you grant permissions, mcpod detects which MCP clients are present and lets you pick where to register the server:
+
+![Selecting MCP clients to register with](docs/install_select.png)
+
+Once registration finishes, the server is installed and ready to run:
+
+![Completed install with registered clients](docs/install_done.png)
+
 Accept requested permissions non-interactively:
 
 ```bash
@@ -124,6 +138,10 @@ mcpod stop my-server
 mcpod stop --all
 mcpod stop --all --force
 ```
+
+Running a server creates its container with only the declared permissions and starts it over the configured transport:
+
+![Running an installed server in its container](docs/running.png)
 
 ### Remove or update servers
 
