@@ -24,6 +24,20 @@ MCP servers can be powerful: they expose tools, data sources, and local capabili
 - 🕒 **Lifecycle management** — start, stop, remove, and update installed servers from the CLI.
 - 🤖 **Automatic Config Generation** — `--interpret-unsafe` can use Gemini to generate a `config.mcpod` from docs when a server does not provide one, but only after the user explicitly opts in.
 
+## Web marketplace
+
+Alongside the CLI, mcpod ships a web frontend for discovering servers before you install them. The landing page pitches the sandbox-by-default model and shows the install flow in action:
+
+![mcpod landing page](docs/landing.png)
+
+Browse the registry, filter by capability, name, or publisher, and see every available pod at a glance:
+
+![Browsing available pods](docs/browser.png)
+
+Open any server to inspect its overview, requested permissions, and the exact `config.mcpod` manifest the registry serves — plus a one-line install command and ready-to-copy client config:
+
+![Server detail page with config.mcpod manifest](docs/mcp_info.png)
+
 ## Requirements
 
 - Node.js 26
